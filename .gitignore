@@ -1,0 +1,80 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IDE
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+**/doc/api/
+
+# Android
+/android/**/gradlew
+/android/**/gradlew.bat
+/android/.gradle
+/android/key.properties          # ← JANGAN COMMIT FILE INI!
+/android/app/google-services.json # ← JANGAN COMMIT jika pakai Firebase real project
+/android/app/build/
+/android/app/.gradle
+
+# iOS
+/ios/Flutter/.last_build_id
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Runner.xcworkspace
+/ios/Runner.xcodeproj/project.xcworkspace
+/ios/Runner/GeneratedPluginRegistrant.*
+/ios/Pods/
+/ios/.symlinks/
+
+# macOS
+/macos/Flutter/GeneratedPluginRegistrant.*
+/macos/Flutter/ephemeral/
+
+# Web
+/web/flutter_service_worker.js
+/web/firebase-messaging-sw.js
+/web/flutter.js
+/web/assets/
+
+# Windows
+/windows/flutter/ephemeral/
+/windows/Runner.sln
+/windows/Runner.vcxproj
+/windows/Runner.vcxproj.filters
+
+# Linux
+/linux/flutter/ephemeral/
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# Environment & Secrets (PENTING!)
+.env
+.env.local
+.env.*.local
+*.env
+**/*.keystore
+**/*.jks
+/secrets/
