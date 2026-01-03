@@ -24,6 +24,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Aplikasi ini memerlukan akses ke kamera Anda untuk memungkinkan Anda mengambil foto profil.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Aplikasi ini memerlukan akses ke galeri foto Anda untuk memungkinkan Anda memilih foto profil.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

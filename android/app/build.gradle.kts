@@ -6,7 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapp"
+    // Changed namespace for the app
+    namespace = "com.zinus.connect"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,10 +21,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.myapp"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Changed the application ID to be unique
+        applicationId = "com.zinus.connect"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -32,11 +31,12 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Set the base name for the generated APK file
+    setProperty("archivesBaseName", "zinus-connect")
 }
 
 flutter {

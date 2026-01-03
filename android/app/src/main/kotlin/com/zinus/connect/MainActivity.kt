@@ -1,4 +1,4 @@
-package com.example.myapp
+package com.zinus.connect
 
 import io.flutter.embedding.android.FlutterActivity
 

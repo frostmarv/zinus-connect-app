@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../widgets/app_bar.dart';
 import '../../../widgets/bottom_nav_bar.dart';
+import '../more/more_screen.dart';
+
+// Tambahkan import untuk GeneralAffairIndex
+import '../../general_affair/general_affair_index.dart'; // Sesuaikan path jika perlu
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,7 +27,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: CustomAppBar(
         onNotificationTap: () {
-          //  Notification Page
+          // Notification Page
         },
       ),
       body: _buildBody(),
@@ -41,8 +45,8 @@ class _HomePageState extends State<HomePage> {
     switch (_currentIndex) {
       case 1:
         return _buildCenterPage('Zira Assistant');
-      case 3:
-        return _buildCenterPage('More');
+      case 2:
+        return const MoreScreen();
       default:
         return _buildHomeContent();
     }
@@ -70,7 +74,10 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
 
           /// EHS
-          _buildSectionHeader("EHS"),
+          _buildSectionHeader(
+            "EHS",
+            onViewAllTap: () => _comingSoon("All EHS Features"),
+          ),
           const SizedBox(height: 12),
           _buildMenuGrid([
             _buildMenuItem(
@@ -95,7 +102,10 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
 
           /// HUMAN RESOURCE
-          _buildSectionHeader("Human Resource"),
+          _buildSectionHeader(
+            "Human Resource",
+            onViewAllTap: () => _comingSoon("All HR Features"),
+          ),
           const SizedBox(height: 12),
           _buildMenuGrid([
             _buildMenuItem(
@@ -103,7 +113,7 @@ class _HomePageState extends State<HomePage> {
               Icons.support_agent_rounded,
               const Color(0xFF3B82F6),
               () {
-                //  HR Helpdesk Chat
+                // HR Helpdesk Chat
               },
             ),
             _buildMenuItem(
@@ -122,7 +132,18 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
 
           /// GENERAL AFFAIR
-          _buildSectionHeader("General Affair"),
+          _buildSectionHeader(
+            "General Affair",
+            // 👇 Ganti dengan navigasi ke GeneralAffairIndex
+            onViewAllTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GeneralAffairIndex(),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 12),
           _buildMenuGrid([
             _buildMenuItem(
@@ -130,7 +151,7 @@ class _HomePageState extends State<HomePage> {
               Icons.headset_mic_rounded,
               const Color(0xFF0EA5E9),
               () {
-                //  GA Helpdesk Chat
+                // GA Helpdesk Chat
               },
             ),
             _buildMenuItem(
@@ -182,10 +203,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+  Widget _buildSectionHeader(String title, {VoidCallback? onViewAllTap}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        if (onViewAllTap != null)
+          GestureDetector(
+            onTap: onViewAllTap,
+            child: Text(
+              'View All',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF3B82F6),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
