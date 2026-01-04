@@ -1,8 +1,9 @@
 // lib/screens/general_affair/limbah/limbah_input.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:zinus_connect/widgets/camera/app_camera_page.dart';
+import 'package:zinus_connect/widgets/camera/camera_config.dart';
 
 class LimbahInputScreen extends StatefulWidget {
   const LimbahInputScreen({super.key});
@@ -27,10 +28,9 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
   String? _selectedVendor;
   String? _selectedJenisLimbah;
 
-  // === IMAGE UPLOAD ===
-  final ImagePicker _picker = ImagePicker();
-  final List<XFile> _fotoMobilImages = [];
-  final List<XFile> _fotoBeratKosongImages = [];
+  // === IMAGE UPLOAD (GANTI TIPE) ===
+  final List<File> _fotoMobilImages = [];
+  final List<File> _fotoBeratKosongImages = [];
   static const int _maxImages = 5;
 
   // === LOADING & SUBMIT ===
@@ -79,34 +79,34 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     super.dispose();
   }
 
-  // === IMAGE HANDLING ===
-  Future<void> _pickImage(ImageSource source, List<XFile> targetList) async {
+  // === CAMERA HANDLING (GANTI FUNGSI) ===
+  Future<void> _openCamera({
+    required List<File> targetList,
+    required String code,
+  }) async {
     if (targetList.length >= _maxImages) {
       _showError('Maksimal $_maxImages foto');
       return;
     }
 
-    try {
-      final picked = await _picker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
-      );
-      if (picked != null) {
-        setState(() {
-          targetList.add(picked);
-        });
-      }
-    } catch (e) {
-      _showError('Gagal memilih gambar: $e');
-    }
-  }
-
-  void _removeImage(int index, List<XFile> targetList) {
-    setState(() {
-      targetList.removeAt(index);
-    });
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppCameraPage(
+          watermarkConfig: CameraWatermarkConfig(
+            title: "ZINUS CONNECT",
+            location: "Zinus Dream Indonesia", // ❌ DIBUTUHKAN OLEH CONSTRUCTOR
+            code: code,
+            showTimestamp: true, // Default true
+          ),
+          onCapture: (file) {
+            setState(() {
+              targetList.add(file);
+            });
+          },
+        ),
+      ),
+    );
   }
 
   // === SUBMIT ===
@@ -205,6 +205,100 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     );
   }
 
+  // === WIDGET BARU: CAMERA PICKER ===
+  Widget _buildCameraPicker({
+    required String label,
+    required List<File> imageList,
+    required String code,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E293B),
+              fontSize: 15,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            // Tampilkan gambar yang sudah diambil
+            ...imageList.asMap().entries.map((entry) {
+              final index = entry.key;
+              final image = entry.value;
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      image,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        imageList.removeAt(index);
+                      }),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            // Tombol tambah foto (hanya dari kamera)
+            if (imageList.length < _maxImages)
+              GestureDetector(
+                onTap: () => _openCamera(targetList: imageList, code: code),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFCBD5E1),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 32,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
   Widget _buildLabeledTextField({
     required String label,
     required TextEditingController controller,
@@ -237,11 +331,17 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.5,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.5,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -249,14 +349,19 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFFDC2626),
+                width: 1.5,
+              ),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xFFDC2626), width: 2),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 18,
+              horizontal: 20,
+            ),
           ),
           style: const TextStyle(
             fontSize: 15,
@@ -298,7 +403,9 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: enabled ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9),
+              color: enabled
+                  ? const Color(0xFFE2E8F0)
+                  : const Color(0xFFF1F5F9),
               width: 1.5,
             ),
             boxShadow: [
@@ -312,8 +419,10 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(
               border: InputBorder.none,
-              contentPadding:
-                  EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+              contentPadding: EdgeInsets.symmetric(
+                vertical: 18,
+                horizontal: 20,
+              ),
               isDense: true,
             ),
             initialValue: value,
@@ -335,129 +444,21 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             dropdownColor: Colors.white,
             icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: enabled ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+              color: enabled
+                  ? const Color(0xFF2563EB)
+                  : const Color(0xFF94A3B8),
               size: 28,
             ),
             hint: Text(
               enabled ? 'Pilih...' : '-',
               style: TextStyle(
-                color: enabled ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
+                color: enabled
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFFCBD5E1),
                 fontSize: 15,
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildImagePicker(String label, List<XFile> imageList) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
-              fontSize: 15,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            ...imageList.asMap().entries.map((entry) {
-              final index = entry.key;
-              final image = entry.value;
-              return Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      File(image.path),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: GestureDetector(
-                      onTap: () => _removeImage(index, imageList),
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
-            if (imageList.length < _maxImages)
-              GestureDetector(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    builder: (context) {
-                      return SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.camera),
-                              title: const Text('Ambil Foto'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _pickImage(ImageSource.camera, imageList);
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.image),
-                              title: const Text('Pilih dari Galeri'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _pickImage(ImageSource.gallery, imageList);
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.add_a_photo,
-                    color: Color(0xFF94A3B8),
-                    size: 32,
-                  ),
-                ),
-              ),
-          ],
         ),
         const SizedBox(height: 20),
       ],
@@ -526,7 +527,9 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          vertical: 18, horizontal: 20),
+                        vertical: 18,
+                        horizontal: 20,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -557,13 +560,17 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                               color: const Color(0xFF2563EB).withAlpha(38),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.access_time_rounded,
-                                color: Color(0xFF2563EB), size: 20),
+                            child: const Icon(
+                              Icons.access_time_rounded,
+                              color: Color(0xFF2563EB),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Text(
-                            DateFormat('dd MMM yyyy, HH:mm:ss')
-                                .format(_timestamp),
+                            DateFormat(
+                              'dd MMM yyyy, HH:mm:ss',
+                            ).format(_timestamp),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -589,7 +596,12 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   },
                 ),
 
-                _buildImagePicker('Foto Berat Kosong', _fotoBeratKosongImages),
+                // GANTI: Gunakan camera picker
+                _buildCameraPicker(
+                  label: 'Foto Berat Kosong',
+                  imageList: _fotoBeratKosongImages,
+                  code: 'GA-LIMBAH-BERAT',
+                ),
 
                 _buildLabeledTextField(
                   label: 'Net',
@@ -602,8 +614,9 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                     if (num == null || num <= 0) return 'Net harus > 0';
                     return null;
                   },
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
 
                 _buildLabeledTextField(
@@ -626,12 +639,17 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   onChanged: (val) => setState(() => _selectedJenisMobil = val),
                 ),
 
-                _buildImagePicker('Foto Mobil', _fotoMobilImages),
+                // GANTI: Gunakan camera picker
+                _buildCameraPicker(
+                  label: 'Foto Mobil',
+                  imageList: _fotoMobilImages,
+                  code: 'GA-LIMBAH-MOBIL',
+                ),
 
                 _buildLabeledDropdown(
                   label: 'Vendor',
                   value: _selectedVendor,
-  options: _vendorOptions,
+                  options: _vendorOptions,
                   onChanged: (val) => setState(() => _selectedVendor = val),
                 ),
 
@@ -639,7 +657,8 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   label: 'Jenis Limbah',
                   value: _selectedJenisLimbah,
                   options: _jenisLimbahOptions,
-                  onChanged: (val) => setState(() => _selectedJenisLimbah = val),
+                  onChanged: (val) =>
+                      setState(() => _selectedJenisLimbah = val),
                 ),
 
                 const SizedBox(height: 32),
@@ -656,8 +675,9 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Icon(Icons.save_rounded, size: 20),

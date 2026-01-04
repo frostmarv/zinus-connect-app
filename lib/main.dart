@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:zinus_connect/router.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
-  runApp(const ZinusConnectApp());
+  initializeDateFormatting('id_ID', null).then((_) => runApp(const ZinusConnectApp()));
 }
 
 class ZinusConnectApp extends StatelessWidget {
