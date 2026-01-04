@@ -11,6 +11,9 @@ class CameraProcessor {
     required String inputPath,
     required String outputPath,
     required CameraWatermarkConfig config,
+
+    /// 🔐 Timestamp dari UI (ANTI DRIFT)
+    DateTime? capturedAt,
   }) async {
     final bytes = await File(inputPath).readAsBytes();
     final original = img.decodeImage(bytes)!;
@@ -21,7 +24,7 @@ class CameraProcessor {
     late img.Image image;
 
     if (original.width / original.height > 3 / 4) {
-      // terlalu lebar → crop kiri kanan
+      // Terlalu lebar → crop kiri & kanan
       final newWidth = (original.height * 3 / 4).round();
       final offsetX = (original.width - newWidth) ~/ 2;
       image = img.copyCrop(
@@ -32,7 +35,7 @@ class CameraProcessor {
         height: original.height,
       );
     } else {
-      // terlalu tinggi → crop atas bawah
+      // Terlalu tinggi → crop atas & bawah
       final newHeight = (original.width * 4 / 3).round();
       final offsetY = (original.height - newHeight) ~/ 2;
       image = img.copyCrop(
@@ -47,20 +50,21 @@ class CameraProcessor {
     /// ============================================================
     /// 2️⃣ LOAD LOGO
     /// ============================================================
-    final ByteData logoData = await rootBundle.load(
-      'assets/images/logo_zinus_tulisan.png',
-    );
+    final ByteData logoData =
+        await rootBundle.load('assets/images/logo_zinus_tulisan.png');
     final Uint8List logoBytes = logoData.buffer.asUint8List();
     final logo = img.decodeImage(logoBytes)!;
     final resizedLogo = img.copyResize(logo, width: 56, height: 28);
 
     /// ============================================================
-    /// 3️⃣ DATA WATERMARK
+    /// 3️⃣ DATA WATERMARK (ANTI DRIFT)
     /// ============================================================
-    final now = DateTime.now();
-    final time = DateFormat("HH:mm").format(now);
-    final date = DateFormat("dd/MM/yyyy").format(now);
-    final day = DateFormat("E", "id_ID").format(now).substring(0, 3);
+    final DateTime now = capturedAt ?? DateTime.now();
+
+    final String time = DateFormat("HH:mm").format(now);
+    final String date = DateFormat("dd/MM/yyyy").format(now);
+    final String day =
+        DateFormat("E", "id_ID").format(now).substring(0, 3);
 
     const String fixedAddress =
         "Jl. H. Lebar No.1, RT.1/RW.5,\n"
@@ -73,15 +77,21 @@ class CameraProcessor {
     final int margin = (image.width * 0.04).toInt();
     final int baseY = image.height - margin;
 
+    const int watermarkHeight = 180; // 🔥 magic number dirapikan
     final int logoX = margin;
-    final int logoY = baseY - 180; // tinggi total watermark
+    final int logoY = baseY - watermarkHeight;
 
     final int textStartY = logoY + 36;
 
     /// ============================================================
     /// 5️⃣ DRAW LOGO
     /// ============================================================
-    img.compositeImage(image, resizedLogo, dstX: logoX, dstY: logoY);
+    img.compositeImage(
+      image,
+      resizedLogo,
+      dstX: logoX,
+      dstY: logoY,
+    );
 
     /// ============================================================
     /// 6️⃣ DRAW TEXT
@@ -116,7 +126,7 @@ class CameraProcessor {
     );
 
     // Alamat
-    final addrLines = fixedAddress.split('\n');
+    final List<String> addrLines = fixedAddress.split('\n');
     for (int i = 0; i < addrLines.length; i++) {
       img.drawString(
         image,

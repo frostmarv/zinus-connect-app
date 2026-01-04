@@ -1,4 +1,3 @@
-// lib/widgets/camera/camera_overlay.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'camera_config.dart';
@@ -10,10 +9,14 @@ class CameraOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    // Gunakan timestamp dari config, jika null maka fallback ke DateTime.now()
+    final now = config.timestamp ?? DateTime.now();
     final time = DateFormat("HH:mm").format(now);
     final date = DateFormat("dd/MM/yyyy").format(now);
-    final day = DateFormat("E", "id_ID").format(now).substring(0, 3);
+    final day = DateFormat(
+      "E",
+      "id_ID",
+    ).format(now).substring(0, 3); // Sen, Sel, Rab, dll
 
     const String fixedAddress =
         "Jl. H. Lebar No.1, RT.1/RW.5,\n"
@@ -107,10 +110,7 @@ class CameraOverlay extends StatelessWidget {
             Flexible(
               child: Text(
                 "Kode Foto: ${config.code ?? 'LXZQ3004'}, Watermark Diverifikasi",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10 * baseScale,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 10 * baseScale),
                 maxLines: 1,
               ),
             ),
