@@ -19,7 +19,7 @@ class GeneralAffairIndex extends StatelessWidget {
           () {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text("$title module is coming soon."),
+                content: Text('$title module is coming soon.'),
                 behavior: SnackBarBehavior.floating,
                 backgroundColor: color,
               ),
@@ -83,23 +83,30 @@ class GeneralAffairIndex extends StatelessWidget {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          "General Affair",
-          style: TextStyle(fontWeight: FontWeight.w600),
+          'General Affair',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E293B), // ✅ Warna eksplisit agar tidak "hilang"
+            fontSize: 18,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E293B),
+        foregroundColor: const Color(
+          0xFF1E293B,
+        ), // untuk ikon (back, menu, dll)
         elevation: 0,
+        // Pastikan tidak ada konflik dengan sistem UI
+        automaticallyImplyLeading: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: ListView(
+          padding: const EdgeInsets.only(top: 20, bottom: 24),
           children: [
-            const SizedBox(height: 20),
-
-            /// HEADER
+            /// HEADER SECTION
             const Text(
-              "GA Modules",
+              'GA Modules',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -108,18 +115,17 @@ class GeneralAffairIndex extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              "General affairs operational management",
+              'General affairs operational management',
               style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
             ),
-
             const SizedBox(height: 24),
 
             /// LIMBAH
             _buildMenuListItem(
               context: context,
               icon: Icons.delete_outline_rounded,
-              title: "Limbah",
-              subtitle: "B3 & Non-B3 waste management",
+              title: 'Limbah',
+              subtitle: 'B3 & Non-B3 waste management',
               color: const Color(0xFFEF4444),
               onTap: () {
                 Navigator.push(
@@ -134,28 +140,23 @@ class GeneralAffairIndex extends StatelessWidget {
             _buildMenuListItem(
               context: context,
               icon: Icons.electrical_services_rounded,
-              title: "Electrical",
-              subtitle: "Electrical inspection & maintenance",
+              title: 'Electrical',
+              subtitle: 'Electrical inspection & maintenance',
               color: const Color(0xFFF59E0B),
               onTap: () {
-                // Navigator.push(
-                //   context,
-                //   MaterialPageRoute(builder: (_) => const ElectricalIndex()),
-                // );
+                //  Implement Electrical screen
               },
             ),
             _divider(),
 
-            /// FUTURE MODULES
+            /// OTHER MODULES
             _buildMenuListItem(
               context: context,
               icon: Icons.more_horiz_rounded,
-              title: "Other GA Modules",
-              subtitle: "Facility, Asset, Vehicle, Pantry, etc",
+              title: 'Other GA Modules',
+              subtitle: 'Facility, Asset, Vehicle, Pantry, etc',
               color: const Color(0xFF6366F1),
             ),
-
-            const SizedBox(height: 12),
           ],
         ),
       ),

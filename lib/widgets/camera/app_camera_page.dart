@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'camera_overlay.dart';
 import 'camera_config.dart';
 import 'camera_processor.dart';
+import 'camera_orientation_helper.dart';
 
 class AppCameraPage extends StatefulWidget {
   final CameraWatermarkConfig watermarkConfig;
@@ -25,7 +26,8 @@ class AppCameraPage extends StatefulWidget {
 class _AppCameraPageState extends State<AppCameraPage> {
   late CameraController _controller;
   bool _ready = false;
-  bool _isTakingPicture = false;
+  bool _previewing = false;
+  File? _result;
 
   @override
   void initState() {
@@ -34,83 +36,39 @@ class _AppCameraPageState extends State<AppCameraPage> {
   }
 
   Future<void> _initCamera() async {
-    try {
-      final cameras = await availableCameras();
-      final backCamera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
-
-      _controller = CameraController(
-        backCamera,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      await _controller.initialize();
-      if (mounted) {
-        setState(() => _ready = true);
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal mengakses kamera: $e')));
-      }
-    }
-  }
-
-  Future<void> _capture() async {
-    if (!_ready || _isTakingPicture) return;
-    setState(() => _isTakingPicture = true);
-
-    try {
-      final raw = await _controller.takePicture();
-      final dir = await getApplicationDocumentsDirectory();
-      final output = File(
-        '${dir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-
-      await CameraProcessor.applyWatermark(
-        inputPath: raw.path,
-        outputPath: output.path,
-        config: widget.watermarkConfig,
-      );
-
-      if (mounted) {
-        widget.onCapture(output);
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal mengambil foto: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isTakingPicture = false);
-    }
-  }
-
-  Future<void> _switchCamera() async {
-    if (!_ready) return;
     final cameras = await availableCameras();
-    final currentDirection = _controller.description.lensDirection;
-    final nextCamera = cameras.firstWhere(
-      (c) => c.lensDirection != currentDirection,
+    final cam = cameras.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.back,
       orElse: () => cameras.first,
     );
-    if (nextCamera == _controller.description) return;
 
-    await _controller.dispose();
     _controller = CameraController(
-      nextCamera,
+      cam,
       ResolutionPreset.high,
       enableAudio: false,
     );
+
     await _controller.initialize();
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _ready = true);
+  }
+
+  Future<void> _capture() async {
+    final raw = await _controller.takePicture();
+    final dir = await getApplicationDocumentsDirectory();
+    final out = File(
+      '${dir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+
+    await CameraProcessor.applyWatermark(
+      inputPath: raw.path,
+      outputPath: out.path,
+      config: widget.watermarkConfig,
+    );
+
+    setState(() {
+      _previewing = true;
+      _result = out;
+    });
   }
 
   @override
@@ -122,54 +80,75 @@ class _AppCameraPageState extends State<AppCameraPage> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: Colors.black,
-        body: const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            CameraPreview(_controller),
+            const Spacer(),
 
-            // Overlay Informasi
-            CameraOverlay(config: widget.watermarkConfig),
+            /// ================== FRAME 3:4 ==================
+            Center(
+              child: AspectRatio(
+                aspectRatio: 3 / 4,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    /// ===== CAMERA / RESULT PREVIEW =====
+                    Transform.rotate(
+                      angle: CameraOrientationHelper.rotation(_controller),
+                      child: _previewing
+                          ? Image.file(_result!, fit: BoxFit.cover)
+                          : CameraPreview(_controller),
+                    ),
 
-            // Kontrol Kamera Bawah
-            Positioned(
-              bottom: 32,
-              left: 16,
-              right: 16,
+                    /// ============ WATERMARK PREVIEW ============
+                    Align(
+                      alignment: CameraOrientationHelper.watermarkAlignment(
+                        _controller,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Transform.rotate(
+                          angle: CameraOrientationHelper.rotation(_controller),
+                          child: CameraOverlay(config: widget.watermarkConfig),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const Spacer(),
+
+            /// ================= CONTROL BAR =================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Tombol Cancel
-                  _buildCircleButton(
+                  _circle(
                     icon: Icons.close,
-                    color: Colors.grey.withAlpha(178),
-                    onPressed: () => Navigator.pop(context),
+                    onTap: () => Navigator.pop(context),
                   ),
-
-                  // Tombol Potret
-                  _buildCircleButton(
-                    icon: Icons.circle,
-                    color: Colors.white,
-                    size: 80,
-                    innerCircle: true,
-                    onPressed: _capture,
+                  _circle(
+                    icon: _previewing ? Icons.check : Icons.camera_alt,
+                    size: 72,
+                    onTap: _previewing
+                        ? () {
+                            widget.onCapture(_result!);
+                            Navigator.pop(context);
+                          }
+                        : _capture,
                   ),
-
-                  // Tombol Ganti Kamera
-                  _buildCircleButton(
-                    icon: Icons.flip_camera_ios,
-                    color: Colors.grey.withAlpha(178),
-                    onPressed: _switchCamera,
-                  ),
+                  _circle(icon: Icons.flip_camera_ios),
                 ],
               ),
             ),
@@ -179,28 +158,21 @@ class _AppCameraPageState extends State<AppCameraPage> {
     );
   }
 
-  Widget _buildCircleButton({
+  Widget _circle({
     required IconData icon,
-    required Color color,
-    double size = 60,
-    bool innerCircle = false,
-    required VoidCallback onPressed,
+    double size = 56,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: onPressed,
+      onTap: onTap,
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: innerCircle
-            ? Container(
-                margin: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  shape: BoxShape.circle,
-                ),
-              )
-            : Icon(icon, color: Colors.white, size: size * 0.5),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.black),
       ),
     );
   }
