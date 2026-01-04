@@ -1,38 +1,24 @@
-# Zinus Connect Mobile App Blueprint
+# Zinus Connect Blueprint
 
 ## Overview
 
-Zinus Connect is an internal mobile application for Zinus employees, designed to streamline communication and provide a centralized helpdesk system. The app will feature:
+Zinus Connect is an internal mobile application for Zinus employees, designed to streamline communication and provide a centralized helpdesk system. This document outlines the project's current state, design principles, and future development plans.
 
-*   **Real-time Chat:** Secure and efficient communication between employees and teams.
-*   **Helpdesk & Ticketing:** A system for creating, tracking, and resolving internal support tickets.
-*   **File & Image Sharing:** Seamlessly share documents and images within chats and tickets.
-*   **Push Notifications:** Instant alerts for new messages, ticket updates, and important announcements.
+## Current Features
 
-## Style, Design, and Features (Initial Outline)
+* **Splash Screen:** A video splash screen for an engaging app launch.
+* **Authentication:** A basic login screen.
+* **Dashboard:** A central navigation hub for the app's features.
+* **Limbah (Waste) Management:** A feature for managing waste, including a form with a camera for image capture and watermarking.
 
-This section will be updated as the app is developed.
+## Design
 
-*   **UI/UX:**
-    *   Clean, modern, and intuitive user interface following Material Design principles.
-    *   Consistent branding with Zinus's corporate identity.
-    *   Light and dark theme options.
-*   **Core Features:**
-    *   User authentication (initially with mock data, later with a proper backend).
-    *   Dashboard/Home screen with an overview of recent activity.
-    *   Chat module with one-on-one and group messaging.
-    *   Helpdesk module with ticket creation, assignment, and status tracking.
-    *   Search functionality for messages and tickets.
-    *   User profile and settings.
+* **Theming:** The app uses Material 3 with a blue color scheme. It supports both light and dark modes and uses custom fonts from the `google_fonts` package. A `ThemeProvider` is used to manage the theme state.
+* **Routing:** Navigation is handled by the `go_router` package.
+* **State Management:** The app uses the `provider` package for state management.
 
-## Current Task: Fix Dependency Issues and Run App
+## Next Steps
 
-The initial goal is to get the application running after resolving dependency conflicts.
-
-**Steps Taken:**
-
-1.  **Analyzed `flutter run` Error:** The initial `flutter run` command failed due to a version conflict with the `go_router` package.
-2.  **Corrected `go_router` Version:** The `pubspec.yaml` file was updated to use a valid version of `go_router` (`^17.0.1`).
-3.  **Resolved `socket_io_client` Conflict:** After fixing `go_router`, another conflict was found with `socket_io_client`. The version was updated to a compatible one (`^2.0.3+1`) as suggested by the `flutter pub` tool.
-4.  **Verified Dependencies:** `flutter pub get` was run successfully to ensure all dependencies are correctly installed.
-5.  **Next Step:** Run the application to confirm it builds and launches without errors.
+* **UI Polish:** Refine the UI of existing screens to improve aesthetics and user experience.
+* **Firebase Integration:** Integrate Firebase for features like authentication, data storage, and push notifications.
+* **Code Refactoring:** Refactor the code to improve its structure and maintainability.

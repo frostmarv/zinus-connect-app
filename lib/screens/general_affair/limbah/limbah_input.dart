@@ -28,7 +28,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
   String? _selectedVendor;
   String? _selectedJenisLimbah;
 
-  // === IMAGE UPLOAD (GANTI TIPE) ===
+  // === IMAGE UPLOAD ===
   final List<File> _fotoMobilImages = [];
   final List<File> _fotoBeratKosongImages = [];
   static const int _maxImages = 5;
@@ -79,7 +79,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     super.dispose();
   }
 
-  // === CAMERA HANDLING (GANTI FUNGSI) ===
+  // === CAMERA HANDLING ===
   Future<void> _openCamera({
     required List<File> targetList,
     required String code,
@@ -95,18 +95,21 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
         builder: (_) => AppCameraPage(
           watermarkConfig: CameraWatermarkConfig(
             title: "ZINUS CONNECT",
-            location: "Zinus Dream Indonesia", // ❌ DIBUTUHKAN OLEH CONSTRUCTOR
             code: code,
-            showTimestamp: true, // Default true
+            showTimestamp: true,
           ),
           onCapture: (file) {
-            setState(() {
-              targetList.add(file);
-            });
+            if (mounted) {
+              setState(() {
+                targetList.add(file);
+              });
+            }
           },
         ),
       ),
     );
+
+    // Optional: handle if user cancels camera without capture
   }
 
   // === SUBMIT ===
@@ -133,23 +136,14 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    if (mounted) setState(() => _isSubmitting = true);
+
     try {
       // ✅ Simulasi submit — ganti dengan API call sesuai kebutuhan
       await Future.delayed(const Duration(milliseconds: 800));
 
-      //  Kirim data ke backend
-      // final response = await LimbahRepository.submit({
-      //   'timestamp': _timestamp.toIso8601String(),
-      //   'nopol': nopol,
-      //   'net': netValue,
-      //   'unit': unit,
-      //   'jenis_mobil': _selectedJenisMobil,
-      //   'vendor': _selectedVendor,
-      //   'jenis_limbah': _selectedJenisLimbah,
-      //   'foto_mobil_count': _fotoMobilImages.length,
-      //   'foto_berat_kosong_count': _fotoBeratKosongImages.length,
-      // });
+      // Kirim data ke backend (contoh terkomentar)
+      // final response = await LimbahRepository.submit({ ... });
 
       if (mounted) {
         _showSuccess('Data limbah berhasil disimpan!');
@@ -168,6 +162,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
 
   // === UI HELPERS ===
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -177,7 +172,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: const Color(0xFF1D4ED8), // Biru tua
+        backgroundColor: const Color(0xFF1D4ED8),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -187,6 +182,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -196,7 +192,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: const Color(0xFF2563EB), // Biru utama
+        backgroundColor: const Color(0xFF2563EB),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -205,7 +201,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     );
   }
 
-  // === WIDGET BARU: CAMERA PICKER ===
+  // === WIDGET: CAMERA PICKER ===
   Widget _buildCameraPicker({
     required String label,
     required List<File> imageList,
@@ -230,7 +226,6 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
           spacing: 12,
           runSpacing: 12,
           children: [
-            // Tampilkan gambar yang sudah diambil
             ...imageList.asMap().entries.map((entry) {
               final index = entry.key;
               final image = entry.value;
@@ -249,9 +244,13 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                     top: -6,
                     right: -6,
                     child: GestureDetector(
-                      onTap: () => setState(() {
-                        imageList.removeAt(index);
-                      }),
+                      onTap: () {
+                        if (mounted) {
+                          setState(() {
+                            imageList.removeAt(index);
+                          });
+                        }
+                      },
                       child: Container(
                         width: 20,
                         height: 20,
@@ -270,7 +269,6 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                 ],
               );
             }),
-            // Tombol tambah foto (hanya dari kamera)
             if (imageList.length < _maxImages)
               GestureDetector(
                 onTap: () => _openCamera(targetList: imageList, code: code),
@@ -299,6 +297,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     );
   }
 
+  // === WIDGET: TEXT FIELD ===
   Widget _buildLabeledTextField({
     required String label,
     required TextEditingController controller,
@@ -376,6 +375,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
     );
   }
 
+  // === WIDGET: DROPDOWN ===
   Widget _buildLabeledDropdown({
     required String label,
     String? value,
@@ -403,9 +403,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: enabled
-                  ? const Color(0xFFE2E8F0)
-                  : const Color(0xFFF1F5F9),
+              color: enabled ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9),
               width: 1.5,
             ),
             boxShadow: [
@@ -419,10 +417,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 18,
-                horizontal: 20,
-              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 20),
               isDense: true,
             ),
             initialValue: value,
@@ -444,17 +439,13 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
             dropdownColor: Colors.white,
             icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: enabled
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFF94A3B8),
+              color: enabled ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
               size: 28,
             ),
             hint: Text(
               enabled ? 'Pilih...' : '-',
               style: TextStyle(
-                color: enabled
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFFCBD5E1),
+                color: enabled ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
                 fontSize: 15,
               ),
             ),
@@ -482,7 +473,6 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
         foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
         centerTitle: false,
-        shadowColor: Colors.black.withAlpha(25),
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -526,18 +516,16 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 18,
-                        horizontal: 20,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          stops: const [0.0, 1.0],
                           colors: [
                             const Color(0xFF2563EB).withAlpha(20),
                             const Color(0xFF1D4ED8).withAlpha(20),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
@@ -568,9 +556,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                           ),
                           const SizedBox(width: 16),
                           Text(
-                            DateFormat(
-                              'dd MMM yyyy, HH:mm:ss',
-                            ).format(_timestamp),
+                            DateFormat('dd MMM yyyy, HH:mm:ss').format(_timestamp),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -596,7 +582,6 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   },
                 ),
 
-                // GANTI: Gunakan camera picker
                 _buildCameraPicker(
                   label: 'Foto Berat Kosong',
                   imageList: _fotoBeratKosongImages,
@@ -614,9 +599,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                     if (num == null || num <= 0) return 'Net harus > 0';
                     return null;
                   },
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
 
                 _buildLabeledTextField(
@@ -639,7 +622,6 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   onChanged: (val) => setState(() => _selectedJenisMobil = val),
                 ),
 
-                // GANTI: Gunakan camera picker
                 _buildCameraPicker(
                   label: 'Foto Mobil',
                   imageList: _fotoMobilImages,
@@ -657,8 +639,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                   label: 'Jenis Limbah',
                   value: _selectedJenisLimbah,
                   options: _jenisLimbahOptions,
-                  onChanged: (val) =>
-                      setState(() => _selectedJenisLimbah = val),
+                  onChanged: (val) => setState(() => _selectedJenisLimbah = val),
                 ),
 
                 const SizedBox(height: 32),
@@ -675,9 +656,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Icon(Icons.save_rounded, size: 20),
@@ -694,9 +673,7 @@ class _LimbahInputScreenState extends State<LimbahInputScreen>
                           ? const Color(0xFF1D4ED8).withAlpha(178)
                           : const Color(0xFF1D4ED8),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
                       shadowColor: const Color(0xFF2563EB).withAlpha(102),
                     ),
