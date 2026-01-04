@@ -28,6 +28,7 @@ dependencies:
 
   # File & Image upload
   image_picker: ^1.1.2  # update
+  camera: ^0.11.3 # Add camera package
   file_picker: ^8.2.0   # 🔥 WAJIB upgrade! Versi 6.x tidak kompatibel dengan Flutter 3.24+
   go_router: ^17.0.1
   video_player: ^2.10.1

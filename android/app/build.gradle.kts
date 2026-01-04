@@ -35,8 +35,19 @@ android {
         }
     }
 
-    // Set the base name for the generated APK file
+    // Set archives base name
     setProperty("archivesBaseName", "zinus-connect")
+
+    // Dynamically set the output filename for each build variant
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            if (variant.buildType.name == "release") {
+                output.outputFileName = "zinus-connect-release.apk"
+            }
+        }
+    }
 }
 
 flutter {
