@@ -31,7 +31,7 @@ class CameraOverlay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Image.asset(
-          'assets/images/logo_zinus_tulisan.png',
+          'assets/images/logo_zinus_tulisan_putih.webp',
           height: 28 * baseScale,
           fit: BoxFit.contain,
         ),

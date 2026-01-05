@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // tambahan
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -11,11 +12,7 @@ import 'camera_overlay.dart';
 import 'camera_config.dart';
 import 'camera_processor.dart';
 
-enum CameraViewOrientation {
-  portrait,
-  landscapeLeft, // HP diputar ke kiri (landscape kiri)
-  landscapeRight, // HP diputar ke kanan (landscape kanan)
-}
+enum CameraViewOrientation { portrait, landscapeLeft, landscapeRight }
 
 class AppCameraPage extends StatefulWidget {
   final CameraWatermarkConfig watermarkConfig;
@@ -32,19 +29,21 @@ class AppCameraPage extends StatefulWidget {
 }
 
 class _AppCameraPageState extends State<AppCameraPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  // ✅ Tambah observer
+
   late CameraController _controller;
   bool _ready = false;
   bool _previewing = false;
   File? _result;
   bool _isFrontCamera = false;
 
-  // 🔑 Sensor & Orientation
-  late StreamSubscription<AccelerometerEvent> _sensorSub;
+  // 🔑 Sensor & Orientation — ✅ jadi nullable untuk defensive dispose
+  StreamSubscription<AccelerometerEvent>? _sensorSub;
   CameraViewOrientation _viewOrientation = CameraViewOrientation.portrait;
   bool _isCaptureLocked = false;
 
-  // 🌀 Animasi Rotasi — DIPERBAIKI
+  // 🌀 Animasi Rotasi
   late AnimationController _rotationAnimController;
   late Animation<double> _rotationAnimation;
 
@@ -52,15 +51,14 @@ class _AppCameraPageState extends State<AppCameraPage>
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
 
-  // ⚙️ Threshold anti-goyang
   static const double _kThreshold = 0.7;
-
-  // 📏 Konstanta untuk posisi watermark
-  static const double _controlBarHeight = 120; // Tinggi control bar + padding
+  static const double _buttonSize = 56.0;
+  static const double _buttonPadding = 24.0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // ✅ daftar observer
 
     _rotationAnimController = AnimationController(
       duration: const Duration(milliseconds: 200),
@@ -76,6 +74,23 @@ class _AppCameraPageState extends State<AppCameraPage>
     _startAutoOrientation();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // ✅ Hanya di mobile (web tidak support kamera background)
+    if (kIsWeb) return;
+
+    if (!_controller.value.isInitialized) return;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // Dispose saat app tidak aktif → hindari crash di Android
+      _controller.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      // Re-init saat kembali
+      _initCamera();
+    }
+  }
+
   void _startClock() {
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
@@ -83,30 +98,36 @@ class _AppCameraPageState extends State<AppCameraPage>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    final cam = cameras.firstWhere(
-      (c) =>
-          c.lensDirection ==
-          (_isFrontCamera
-              ? CameraLensDirection.front
-              : CameraLensDirection.back),
-      orElse: () => cameras.first,
-    );
+    try {
+      final cameras = await availableCameras();
+      final cam = cameras.firstWhere(
+        (c) =>
+            c.lensDirection ==
+            (_isFrontCamera
+                ? CameraLensDirection.front
+                : CameraLensDirection.back),
+        orElse: () => cameras.first,
+      );
 
-    _controller = CameraController(
-      cam,
-      ResolutionPreset.high,
-      enableAudio: false,
-    );
+      _controller = CameraController(
+        cam,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
 
-    await _controller.initialize();
-    if (mounted) setState(() => _ready = true);
+      await _controller.initialize();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      // Opsional: error handling jika kamera gagal init
+      if (mounted) Navigator.pop(context); // atau show error
+    }
   }
 
   void _startAutoOrientation() {
-    // ✅ FIX: Gunakan accelerometerEventStream() bukan accelerometerEvents
+    // ✅ Cek ulang sebelum subscribe
+    if (_sensorSub != null) return;
+
     _sensorSub = accelerometerEventStream().listen((event) {
-      // 🔒 Freeze saat capture ATAU preview (hasil sudah tetap)
       if (_isCaptureLocked || _previewing) return;
 
       final x = event.x;
@@ -120,19 +141,18 @@ class _AppCameraPageState extends State<AppCameraPage>
             ? CameraViewOrientation.landscapeLeft
             : CameraViewOrientation.landscapeRight;
       } else {
-        return; // Tidak cukup miring → skip
+        return;
       }
 
       if (next != _viewOrientation) {
         setState(() => _viewOrientation = next);
 
         final newAngle = switch (next) {
-          CameraViewOrientation.landscapeLeft => -math.pi / 2,
-          CameraViewOrientation.landscapeRight => math.pi / 2,
+          CameraViewOrientation.landscapeLeft => math.pi / 2,
+          CameraViewOrientation.landscapeRight => -math.pi / 2,
           _ => 0.0,
         };
 
-        // ✅ ANIMASI ROTASI DIPERBAIKI — TIDAK PAKAI animateTo()
         final begin = _rotationAnimation.value;
         _rotationAnimation = Tween<double>(begin: begin, end: newAngle).animate(
           CurvedAnimation(
@@ -149,7 +169,8 @@ class _AppCameraPageState extends State<AppCameraPage>
   }
 
   Future<void> _capture() async {
-    // 🔒 Lock orientasi & matikan sensor update
+    // 🔒 Freeze rotation animasi agar tidak "nyangkut"
+    _rotationAnimController.stop();
     setState(() => _isCaptureLocked = true);
 
     try {
@@ -163,19 +184,23 @@ class _AppCameraPageState extends State<AppCameraPage>
         inputPath: raw.path,
         outputPath: out.path,
         config: widget.watermarkConfig.copyWith(timestamp: _now),
-        capturedAt: _now, // 🔥 FIX: Timestamp sinkron antara UI dan hasil foto
+        capturedAt: _now,
       );
 
       if (mounted) {
         setState(() {
           _previewing = true;
           _result = out;
-          // Sensor otomatis freeze karena _previewing = true
         });
       }
     } catch (e) {
-      // Opsional: error handling
-      if (mounted) setState(() => _isCaptureLocked = false);
+      if (mounted) {
+        setState(() {
+          _isCaptureLocked = false;
+          // Opsional: reset animasi ke posisi aman
+          _rotationAnimController.forward(from: 0);
+        });
+      }
       rethrow;
     }
   }
@@ -195,8 +220,9 @@ class _AppCameraPageState extends State<AppCameraPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // ✅ cleanup observer
     _clockTimer?.cancel();
-    _sensorSub.cancel();
+    _sensorSub?.cancel(); // ✅ aman karena nullable
     _rotationAnimController.dispose();
     _controller.dispose();
     super.dispose();
@@ -213,110 +239,76 @@ class _AppCameraPageState extends State<AppCameraPage>
       );
     }
 
-    // 🪞 Mirror hanya untuk preview kamera depan
-    final shouldMirror = !_previewing && _isFrontCamera;
+    final shouldMirrorPreview = !_previewing && _isFrontCamera;
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // LAYER 1: UI UTAMA (KAMERA, PREVIEW, TOMBOL) — BOLEH ROTATE
-            AnimatedBuilder(
-              animation: _rotationAnimation,
-              builder: (context, _) {
-                Widget content = Column(
-                  children: [
-                    const Spacer(),
+    final cameraFrame = AspectRatio(
+      aspectRatio: _controller.value.aspectRatio,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.center,
+          child: shouldMirrorPreview
+              ? Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.rotationY(math.pi),
+                  child: CameraPreview(_controller),
+                )
+              : CameraPreview(_controller),
+        ),
+      ),
+    );
 
-                    /// ================== FRAME 3:4 ==================
-                    Center(
-                      child: AspectRatio(
-                        aspectRatio: 3 / 4,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            /// ===== CAMERA / RESULT PREVIEW =====
-                            _previewing
-                                ? Image.file(_result!, fit: BoxFit.cover)
-                                : Transform.scale(
-                                    scaleX: shouldMirror ? -1.0 : 1.0,
-                                    child: CameraPreview(_controller),
-                                  ),
-
-                            // ✅ WATERMARK DI ATAS KAMERA — POSISI TEPAT DI ATAS TOMBOL KIRI
-                            if (!_previewing)
-                              Positioned(
-                                left: 12,
-                                bottom: _controlBarHeight + 12, // 🔥 SEJAJAR HORIZONTAL DENGAN TOMBOL KIRI
-                                child: Transform.scale(
-                                  scaleX: shouldMirror ? -1.0 : 1.0,
-                                  child: CameraOverlay(
-                                    config: widget.watermarkConfig.copyWith(
-                                      timestamp: _now, // ✅ REAL-TIME
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    /// ================= CONTROL BAR =================
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 24,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _circle(
-                            icon: Icons.close,
-                            onTap: () => Navigator.pop(context),
-                          ),
-                          _circle(
-                            icon: _previewing ? Icons.check : Icons.camera_alt,
-                            size: 72,
-                            onTap: _previewing
-                                ? () {
-                                    widget.onCapture(_result!);
-                                    Navigator.pop(context);
-                                  }
-                                : _capture,
-                          ),
-                          _circle(
-                            icon: Icons.flip_camera_ios,
-                            onTap: _toggleCamera,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-
-                // Jika mirror aktif → flip horizontal seluruh konten
-                if (shouldMirror) {
-                  content = Transform.scale(
-                    scaleX: -1.0, // ✅ FIX: Gunakan scaleX, bukan Offset()
-                    child: content,
-                  );
-                }
-
-                // ✅ WAJIB: Aktifkan hit test agar tombol bisa diklik
-                return Transform.rotate(
-                  angle: _uiRotation,
-                  transformHitTests: true, // 🔥 FIX: Tombol bisa diklik!
-                  child: content,
-                );
-              },
+    final watermark = !_previewing
+        ? Positioned(
+            left: 12,
+            bottom: _buttonPadding + _buttonSize + _buttonPadding,
+            child: CameraOverlay(
+              config: widget.watermarkConfig.copyWith(timestamp: _now),
             ),
+          )
+        : const SizedBox();
+
+    final rotatableLayer = Center(
+      child: Transform.rotate(
+        angle: _uiRotation,
+        transformHitTests: false,
+        child: Stack(
+          fit: StackFit.expand,
+          alignment: Alignment.center,
+          children: [cameraFrame, watermark],
+        ),
+      ),
+    );
+
+    final controlBar = Positioned(
+      left: 0,
+      right: 0,
+      bottom: bottomSafeArea + _buttonPadding,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _circle(icon: Icons.close, onTap: () => Navigator.pop(context)),
+            _circle(
+              icon: _previewing ? Icons.check : Icons.camera_alt,
+              size: 72,
+              onTap: _previewing
+                  ? () {
+                      widget.onCapture(_result!);
+                      Navigator.pop(context);
+                    }
+                  : _capture,
+            ),
+            _circle(icon: Icons.flip_camera_ios, onTap: _toggleCamera),
           ],
         ),
       ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(child: Stack(children: [rotatableLayer, controlBar])),
     );
   }
 
