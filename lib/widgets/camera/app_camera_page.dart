@@ -2,8 +2,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // tambahan
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -30,44 +31,37 @@ class AppCameraPage extends StatefulWidget {
 
 class _AppCameraPageState extends State<AppCameraPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  // ✅ Tambah observer
-
   late CameraController _controller;
+
   bool _ready = false;
   bool _previewing = false;
-  File? _result;
-  bool _isFrontCamera = false;
-
-  // 🔑 Sensor & Orientation — ✅ jadi nullable untuk defensive dispose
-  StreamSubscription<AccelerometerEvent>? _sensorSub;
-  CameraViewOrientation _viewOrientation = CameraViewOrientation.portrait;
+  final bool _isFrontCamera = false;
   bool _isCaptureLocked = false;
 
-  // 🌀 Animasi Rotasi
-  late AnimationController _rotationAnimController;
-  late Animation<double> _rotationAnimation;
+  File? _result;
 
-  // ⏱️ Real-time clock
+  // Orientation
+  StreamSubscription<AccelerometerEvent>? _sensorSub;
+  CameraViewOrientation _viewOrientation = CameraViewOrientation.portrait;
+
+  late AnimationController _rotationController;
+  late Animation<double> _rotation;
+
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
 
   static const double _kThreshold = 0.7;
-  static const double _buttonSize = 56.0;
-  static const double _buttonPadding = 24.0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // ✅ daftar observer
+    WidgetsBinding.instance.addObserver(this);
 
-    _rotationAnimController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+    _rotationController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 200),
     );
-    _rotationAnimation = Tween<double>(
-      begin: 0,
-      end: 0,
-    ).animate(_rotationAnimController);
+    _rotation = Tween(begin: 0.0, end: 0.0).animate(_rotationController);
 
     _startClock();
     _initCamera();
@@ -76,17 +70,13 @@ class _AppCameraPageState extends State<AppCameraPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // ✅ Hanya di mobile (web tidak support kamera background)
     if (kIsWeb) return;
-
     if (!_controller.value.isInitialized) return;
 
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
-      // Dispose saat app tidak aktif → hindari crash di Android
       _controller.dispose();
     } else if (state == AppLifecycleState.resumed) {
-      // Re-init saat kembali
       _initCamera();
     }
   }
@@ -98,37 +88,32 @@ class _AppCameraPageState extends State<AppCameraPage>
   }
 
   Future<void> _initCamera() async {
-    try {
-      final cameras = await availableCameras();
-      final cam = cameras.firstWhere(
-        (c) =>
-            c.lensDirection ==
-            (_isFrontCamera
-                ? CameraLensDirection.front
-                : CameraLensDirection.back),
-        orElse: () => cameras.first,
-      );
+    final cameras = await availableCameras();
+    final cam = cameras.firstWhere(
+      (c) =>
+          c.lensDirection ==
+          (_isFrontCamera
+              ? CameraLensDirection.front
+              : CameraLensDirection.back),
+      orElse: () => cameras.first,
+    );
 
-      _controller = CameraController(
-        cam,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
+    _controller = CameraController(
+      cam,
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
 
-      await _controller.initialize();
-      if (mounted) setState(() => _ready = true);
-    } catch (e) {
-      // Opsional: error handling jika kamera gagal init
-      if (mounted) Navigator.pop(context); // atau show error
-    }
+    await _controller.initialize();
+    if (mounted) setState(() => _ready = true);
   }
 
   void _startAutoOrientation() {
-    // ✅ Cek ulang sebelum subscribe
-    if (_sensorSub != null) return;
+    _sensorSub ??= accelerometerEventStream().listen((event) {
+      if (_previewing || _isCaptureLocked) return;
 
-    _sensorSub = accelerometerEventStream().listen((event) {
-      if (_isCaptureLocked || _previewing) return;
+      // Hanya aktifkan rotasi untuk kamera belakang
+      if (_isFrontCamera) return;
 
       final x = event.x;
       final y = event.y;
@@ -144,91 +129,185 @@ class _AppCameraPageState extends State<AppCameraPage>
         return;
       }
 
-      if (next != _viewOrientation) {
-        setState(() => _viewOrientation = next);
+      if (next == _viewOrientation) return;
 
-        final newAngle = switch (next) {
-          CameraViewOrientation.landscapeLeft => math.pi / 2,
-          CameraViewOrientation.landscapeRight => -math.pi / 2,
-          _ => 0.0,
-        };
+      _viewOrientation = next;
 
-        final begin = _rotationAnimation.value;
-        _rotationAnimation = Tween<double>(begin: begin, end: newAngle).animate(
-          CurvedAnimation(
-            parent: _rotationAnimController,
-            curve: Curves.easeOut,
-          ),
-        );
+      final angle = switch (next) {
+        CameraViewOrientation.landscapeLeft => math.pi / 2,
+        CameraViewOrientation.landscapeRight => -math.pi / 2,
+        _ => 0.0,
+      };
 
-        _rotationAnimController
-          ..reset()
-          ..forward();
-      }
+      _rotation = Tween(begin: _rotation.value, end: angle).animate(
+        CurvedAnimation(parent: _rotationController, curve: Curves.easeOut),
+      );
+
+      _rotationController
+        ..reset()
+        ..forward();
     });
   }
 
   Future<void> _capture() async {
-    // 🔒 Freeze rotation animasi agar tidak "nyangkut"
-    _rotationAnimController.stop();
-    setState(() => _isCaptureLocked = true);
+    _rotationController.stop();
+    _isCaptureLocked = true;
 
-    try {
-      final raw = await _controller.takePicture();
-      final dir = await getApplicationDocumentsDirectory();
-      final out = File(
-        '${dir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
+    final raw = await _controller.takePicture();
+    final dir = await getApplicationDocumentsDirectory();
+    final out = File(
+      '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
 
-      await CameraProcessor.applyWatermark(
-        inputPath: raw.path,
-        outputPath: out.path,
-        config: widget.watermarkConfig.copyWith(timestamp: _now),
-        capturedAt: _now,
-      );
+    await CameraProcessor.applyWatermark(
+      inputPath: raw.path,
+      outputPath: out.path,
+      config: widget.watermarkConfig.copyWith(timestamp: _now),
+      capturedAt: _now,
+    );
 
-      if (mounted) {
-        setState(() {
-          _previewing = true;
-          _result = out;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isCaptureLocked = false;
-          // Opsional: reset animasi ke posisi aman
-          _rotationAnimController.forward(from: 0);
-        });
-      }
-      rethrow;
+    if (mounted) {
+      setState(() {
+        _previewing = true;
+        _result = out;
+      });
     }
-  }
-
-  void _toggleCamera() async {
-    if (_controller.value.isRecordingVideo) return;
-
-    await _controller.dispose();
-    setState(() {
-      _isFrontCamera = !_isFrontCamera;
-      _previewing = false;
-      _result = null;
-      _isCaptureLocked = false;
-    });
-    await _initCamera();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // ✅ cleanup observer
+    WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
-    _sensorSub?.cancel(); // ✅ aman karena nullable
-    _rotationAnimController.dispose();
+    _sensorSub?.cancel();
+    _rotationController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  double get _uiRotation => _rotationAnimation.value;
+  // ================= UI =================
+
+  Widget _cameraPreview() {
+    final mirror = _isFrontCamera && !_previewing;
+
+    // ✅ Gunakan FittedBox agar tidak gepeng
+    // ✅ Gunakan Transform.scale untuk mirror (tidak deprecated)
+    return Center(
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: mirror
+              ? Transform.scale(scaleX: -1, child: CameraPreview(_controller))
+              : CameraPreview(_controller),
+        ),
+      ),
+    );
+  }
+
+  Widget _previewImage() {
+    if (!_previewing || _result == null) return const SizedBox();
+    return Positioned.fill(
+      child: Container(
+        // ✅ Ganti withOpacity → gunakan Color.fromRGBO
+        color: const Color.fromRGBO(0, 0, 0, 0.8),
+        child: Center(
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 3.0,
+            child: Image.file(_result!, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _watermark() {
+    if (_previewing) return const SizedBox();
+    return Positioned(
+      left: 16,
+      top: 16,
+      child: CameraOverlay(
+        config: widget.watermarkConfig.copyWith(timestamp: _now),
+      ),
+    );
+  }
+
+  Widget _controls() {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _circle(Icons.image, () {}, size: 48),
+                _circle(Icons.folder, () {}, size: 48),
+                _circle(
+                  _previewing ? Icons.check : Icons.camera_alt,
+                  _previewing
+                      ? () {
+                          widget.onCapture(_result!);
+                          Navigator.pop(context);
+                        }
+                      : _capture,
+                  size: 72,
+                ),
+                _circle(Icons.note, () {}, size: 48),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(onPressed: () {}, child: const Text('VIDEO')),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('|', style: TextStyle(fontSize: 18)),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    'FOTO',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('|', style: TextStyle(fontSize: 18)),
+                ),
+                TextButton(onPressed: () {}, child: const Text('ABSENSI')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _circle(IconData icon, VoidCallback onTap, {double size = 56}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 2),
+        ),
+        child: Icon(icon, color: Colors.black),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -239,94 +318,18 @@ class _AppCameraPageState extends State<AppCameraPage>
       );
     }
 
-    final shouldMirrorPreview = !_previewing && _isFrontCamera;
-    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-
-    final cameraFrame = AspectRatio(
-      aspectRatio: _controller.value.aspectRatio,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.center,
-          child: shouldMirrorPreview
-              ? Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.rotationY(math.pi),
-                  child: CameraPreview(_controller),
-                )
-              : CameraPreview(_controller),
-        ),
-      ),
-    );
-
-    final watermark = !_previewing
-        ? Positioned(
-            left: 12,
-            bottom: _buttonPadding + _buttonSize + _buttonPadding,
-            child: CameraOverlay(
-              config: widget.watermarkConfig.copyWith(timestamp: _now),
-            ),
-          )
-        : const SizedBox();
-
-    final rotatableLayer = Center(
-      child: Transform.rotate(
-        angle: _uiRotation,
-        transformHitTests: false,
-        child: Stack(
-          fit: StackFit.expand,
-          alignment: Alignment.center,
-          children: [cameraFrame, watermark],
-        ),
-      ),
-    );
-
-    final controlBar = Positioned(
-      left: 0,
-      right: 0,
-      bottom: bottomSafeArea + _buttonPadding,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _circle(icon: Icons.close, onTap: () => Navigator.pop(context)),
-            _circle(
-              icon: _previewing ? Icons.check : Icons.camera_alt,
-              size: 72,
-              onTap: _previewing
-                  ? () {
-                      widget.onCapture(_result!);
-                      Navigator.pop(context);
-                    }
-                  : _capture,
-            ),
-            _circle(icon: Icons.flip_camera_ios, onTap: _toggleCamera),
-          ],
-        ),
-      ),
-    );
-
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(child: Stack(children: [rotatableLayer, controlBar])),
-    );
-  }
-
-  Widget _circle({
-    required IconData icon,
-    double size = 56,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Transform.rotate(angle: _rotation.value, child: _cameraPreview()),
+            _previewImage(),
+            _watermark(),
+            _controls(),
+          ],
         ),
-        child: Icon(icon, color: Colors.black),
       ),
     );
   }
