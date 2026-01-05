@@ -88,24 +88,33 @@ class _AppCameraPageState extends State<AppCameraPage>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    final cam = cameras.firstWhere(
-      (c) =>
-          c.lensDirection ==
-          (_isFrontCamera
-              ? CameraLensDirection.front
-              : CameraLensDirection.back),
-      orElse: () => cameras.first,
-    );
+    try {
+      final cameras = await availableCameras();
+      final cam = cameras.firstWhere(
+        (c) =>
+            c.lensDirection ==
+            (_isFrontCamera
+                ? CameraLensDirection.front
+                : CameraLensDirection.back),
+        orElse: () => cameras.first,
+      );
 
-    _controller = CameraController(
-      cam,
-      ResolutionPreset.high,
-      enableAudio: false,
-    );
+      _controller = CameraController(
+        cam,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
 
-    await _controller.initialize();
-    if (mounted) setState(() => _ready = true);
+      await _controller.initialize();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal inisialisasi kamera: $e')),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   void _startAutoOrientation() {
@@ -153,24 +162,36 @@ class _AppCameraPageState extends State<AppCameraPage>
     _rotationController.stop();
     _isCaptureLocked = true;
 
-    final raw = await _controller.takePicture();
-    final dir = await getApplicationDocumentsDirectory();
-    final out = File(
-      '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
+    try {
+      final raw = await _controller.takePicture();
+      final dir = await getApplicationDocumentsDirectory();
+      final out = File(
+        '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
 
-    await CameraProcessor.applyWatermark(
-      inputPath: raw.path,
-      outputPath: out.path,
-      config: widget.watermarkConfig.copyWith(timestamp: _now),
-      capturedAt: _now,
-    );
+      await CameraProcessor.applyWatermark(
+        inputPath: raw.path,
+        outputPath: out.path,
+        config: widget.watermarkConfig.copyWith(timestamp: _now),
+        capturedAt: _now,
+      );
 
-    if (mounted) {
-      setState(() {
-        _previewing = true;
-        _result = out;
-      });
+      if (mounted) {
+        setState(() {
+          _previewing = true;
+          _result = out;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal ambil foto: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCaptureLocked = false);
+      }
     }
   }
 
@@ -187,18 +208,24 @@ class _AppCameraPageState extends State<AppCameraPage>
   // ================= UI =================
 
   Widget _cameraPreview() {
+    if (!_controller.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final mirror = _isFrontCamera && !_previewing;
 
-    // ✅ Gunakan FittedBox agar tidak gepeng
-    // ✅ Gunakan Transform.scale untuk mirror (tidak deprecated)
-    return Center(
-      child: AspectRatio(
-        aspectRatio: _controller.value.aspectRatio,
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: mirror
-              ? Transform.scale(scaleX: -1, child: CameraPreview(_controller))
-              : CameraPreview(_controller),
+    // ✅ Gunakan Container + FittedBox agar preview selalu fill screen
+    return Container(
+      color: Colors.black,
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height,
+          child: Transform.scale(
+            scaleX: mirror ? -1 : 1,
+            child: CameraPreview(_controller),
+          ),
         ),
       ),
     );
@@ -208,7 +235,6 @@ class _AppCameraPageState extends State<AppCameraPage>
     if (!_previewing || _result == null) return const SizedBox();
     return Positioned.fill(
       child: Container(
-        // ✅ Ganti withOpacity → gunakan Color.fromRGBO
         color: const Color.fromRGBO(0, 0, 0, 0.8),
         child: Center(
           child: InteractiveViewer(
@@ -324,6 +350,7 @@ class _AppCameraPageState extends State<AppCameraPage>
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // ✅ Rotasi hanya diterapkan ke preview saja
             Transform.rotate(angle: _rotation.value, child: _cameraPreview()),
             _previewImage(),
             _watermark(),

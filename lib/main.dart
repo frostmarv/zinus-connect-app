@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:zinus_connect/router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -16,13 +15,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const MaterialColor primarySeedColor = Colors.blue;
 
-    final TextTheme appTextTheme = TextTheme(
-      displayLarge: GoogleFonts.oswald(
+    final TextTheme appTextTheme = const TextTheme(
+      displayLarge: TextStyle(
         fontSize: 57,
         fontWeight: FontWeight.bold,
+        fontFamily: 'Oswald',
       ),
-      titleLarge: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500),
-      bodyMedium: GoogleFonts.openSans(fontSize: 14),
+      titleLarge: TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w500,
+        fontFamily: 'Roboto',
+      ),
+      bodyMedium: TextStyle(fontSize: 14, fontFamily: 'OpenSans'),
     );
 
     final ThemeData lightTheme = ThemeData(
@@ -32,12 +36,13 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       textTheme: appTextTheme,
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: primarySeedColor,
         foregroundColor: Colors.white,
-        titleTextStyle: GoogleFonts.oswald(
+        titleTextStyle: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.bold,
+          fontFamily: 'Oswald',
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -46,9 +51,10 @@ class MyApp extends StatelessWidget {
           backgroundColor: primarySeedColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          textStyle: GoogleFonts.roboto(
+          textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
+            fontFamily: 'Roboto',
           ),
         ),
       ),
@@ -59,7 +65,6 @@ class MyApp extends StatelessWidget {
       title: 'Zinus Connect',
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
-      // Hanya gunakan tema terang; darkTheme dan ThemeMode dihapus sementara
     );
   }
 }

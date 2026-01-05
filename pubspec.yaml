@@ -1,3 +1,4 @@
+
 name: zinus_connect
 description: "Zinus Connect Mobile App - Internal Communication & Helpdesk System"
 publish_to: 'none'
@@ -32,7 +33,6 @@ dependencies:
   intl: ^0.20.2
   path_provider: ^2.1.5
   image: ^4.7.2
-  google_fonts: ^6.3.3
   sensors_plus: ^7.0.0
 
 dev_dependencies:
@@ -57,3 +57,18 @@ flutter:
     - assets/images/
     - assets/images/zinus_splash.mp4
     - assets/icons/
+
+  fonts:
+    - family: Oswald
+      fonts:
+        - asset: google_fonts/Oswald-Regular.ttf
+        - asset: google_fonts/Oswald-Bold.ttf
+          weight: 700
+    - family: Roboto
+      fonts:
+        - asset: google_fonts/Roboto-Regular.ttf
+        - asset: google_fonts/Roboto-Medium.ttf
+          weight: 500
+    - family: OpenSans
+      fonts:
+        - asset: google_fonts/OpenSans-Regular.ttf
